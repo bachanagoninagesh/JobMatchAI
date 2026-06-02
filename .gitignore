@@ -1,0 +1,27 @@
+# Secrets — never commit these
+.env
+
+# Runtime files written per-user-session
+resume.txt
+config.json
+last_extract.txt
+
+# Generated PDFs
+output/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp

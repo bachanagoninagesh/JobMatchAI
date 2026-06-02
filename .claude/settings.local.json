@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"C:\\\\\\\\Users\\\\\\\\nages\\\\\\\\OneDrive\\\\\\\\Desktop\\\\\\\\Projects\\\\\\\\matchAI\" -type f -o -type d)",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\nages\\\\OneDrive\\\\Desktop\\\\Projects\\\\matchAI\\\\Auto_Apply\")",
+      "Bash(python -c ' *)",
+      "Bash(python _test_sources.py)",
+      "Bash(del \"D:\\\\duplicate of matchAI for everyone\\\\_test_sources.py\")",
+      "Skill(anthropic-skills:pdf)",
+      "Skill(anthropic-skills:pdf:*)",
+      "Bash(python -c \"import pdf_generator; print\\('pdf_generator OK'\\)\")",
+      "Bash(python -c \"import matcher; print\\('matcher OK'\\)\")",
+      "Bash(python -c \"import main\")",
+      "Bash(python -m py_compile pdf_generator.py)",
+      "Bash(python -m py_compile matcher.py)",
+      "Bash(python -m py_compile main.py)",
+      "Bash(pip install *)",
+      "Bash(pip show *)",
+      "Bash(Get-Item \"D:\\\\duplicate of matchAI for everyone\\\\resume.txt\")",
+      "Bash(Select-Object Length, LastWriteTime)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -W ignore -c ' *)",
+      "Bash(cat \"/mnt/c/Users/nages/AppData/Local/Temp/claude/D--duplicate-of-matchAI-for-everyone/2efab208-b835-471e-ac57-4b15ff094df9/tasks/bm8xquom0.output\" 2>&1 || echo \"NOT FOUND\")",
+      "Bash(ls \"/mnt/c/Users/nages/Downloads/\" 2>/dev/null | head -40)",
+      "Bash(cmd.exe /c \"dir C:\\\\Users\\\\nages\\\\Downloads\\\\*.docx C:\\\\Users\\\\nages\\\\Downloads\\\\*.pdf C:\\\\Users\\\\nages\\\\Downloads\\\\*.doc 2>nul\")",
+      "Bash(python -W ignore -c ' *)",
+      "Bash(powershell.exe -Command \"Get-Content 'C:\\\\Users\\\\nages\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--duplicate-of-matchAI-for-everyone\\\\2efab208-b835-471e-ac57-4b15ff094df9\\\\tasks\\\\bxieoez8d.output'\")"
+    ]
+  }
+}
