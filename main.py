@@ -2,8 +2,21 @@ import os
 import re
 import sys
 import json
+import socket as _socket
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# ── Force IPv4 globally ───────────────────────────────────────────────────────
+# Render (and some other Linux hosts) advertise IPv6 addresses in DNS but do
+# not actually route IPv6 traffic.  Python's socket.getaddrinfo returns AAAA
+# records first on dual-stack hosts, so the very first connect() call gets
+# OSError errno 101 (ENETUNREACH) and the whole process dies.
+# Patching getaddrinfo to always request AF_INET makes every network library
+# (requests, httpx/openai, smtplib, etc.) use IPv4 instead.
+_orig_gai = _socket.getaddrinfo
+def _ipv4_only(host, port, family=0, type=0, proto=0, flags=0):
+    return _orig_gai(host, port, _socket.AF_INET, type, proto, flags)
+_socket.getaddrinfo = _ipv4_only
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -193,6 +206,10 @@ if not results:
 
 # ── Step 4: Send email ────────────────────────────────────────────────────────
 print(f"\nSending email with {len(attachments)} attachments...")
-send_email("\n".join(results), attachments)
-print("Email sent successfully.")
+try:
+    send_email("\n".join(results), attachments)
+    print("Email sent successfully.")
+except Exception as _mail_err:
+    print(f"Email failed: {_mail_err}")
+    print("Jobs were processed — PDFs generated. Check your email settings.")
 print("Process finished successfully.")

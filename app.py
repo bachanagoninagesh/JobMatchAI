@@ -5,9 +5,19 @@ import time
 import secrets
 import subprocess
 import sys
+import socket as _socket
 import threading
 from flask import (Flask, request, jsonify, render_template,
                    make_response, session, redirect, url_for)
+
+# ── Force IPv4 globally ───────────────────────────────────────────────────────
+# Render (and some other Linux hosts) have IPv6 in DNS but no IPv6 routing.
+# Python tries IPv6 first → OSError errno 101 (ENETUNREACH).
+# This patch makes every library (requests, smtplib, httpx/openai) use IPv4.
+_orig_gai = _socket.getaddrinfo
+def _ipv4_only(host, port, family=0, type=0, proto=0, flags=0):
+    return _orig_gai(host, port, _socket.AF_INET, type, proto, flags)
+_socket.getaddrinfo = _ipv4_only
 
 app = Flask(__name__)
 # Secret key for session cookies — auto-generated at startup so it's
