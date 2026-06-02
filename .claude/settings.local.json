@@ -24,7 +24,10 @@
       "Bash(ls \"/mnt/c/Users/nages/Downloads/\" 2>/dev/null | head -40)",
       "Bash(cmd.exe /c \"dir C:\\\\Users\\\\nages\\\\Downloads\\\\*.docx C:\\\\Users\\\\nages\\\\Downloads\\\\*.pdf C:\\\\Users\\\\nages\\\\Downloads\\\\*.doc 2>nul\")",
       "Bash(python -W ignore -c ' *)",
-      "Bash(powershell.exe -Command \"Get-Content 'C:\\\\Users\\\\nages\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--duplicate-of-matchAI-for-everyone\\\\2efab208-b835-471e-ac57-4b15ff094df9\\\\tasks\\\\bxieoez8d.output'\")"
+      "Bash(powershell.exe -Command \"Get-Content 'C:\\\\Users\\\\nages\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--duplicate-of-matchAI-for-everyone\\\\2efab208-b835-471e-ac57-4b15ff094df9\\\\tasks\\\\bxieoez8d.output'\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
