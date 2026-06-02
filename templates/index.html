@@ -735,33 +735,7 @@ affirm</textarea>
 
 </div><!-- /container -->
 
-<!-- Wrong-origin banner — shown only when not served by Flask -->
-<div id="origin-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;
-  background:#c0392b;color:#fff;padding:14px 24px;font-size:0.9rem;
-  font-family:inherit;z-index:9999;align-items:center;gap:16px;">
-  <span style="font-size:1.3rem;">⚠️</span>
-  <span>
-    <strong>This page is not running through Flask.</strong>
-    Open a terminal, run <code style="background:rgba(255,255,255,0.2);padding:2px 6px;border-radius:4px;">python app.py</code>,
-    then open <a href="http://localhost:5000" style="color:#fff;font-weight:700;">http://localhost:5000</a> in your browser.
-  </span>
-</div>
-
 <script>
-// ── Origin check — must be served by Flask on port 5000 ──────────────────────
-(function () {
-  const ok = window.location.protocol === 'http:' &&
-              window.location.hostname === 'localhost' &&
-              window.location.port    === '5000';
-  if (!ok) {
-    const banner = document.getElementById('origin-banner');
-    banner.style.display = 'flex';
-    // Disable the run button so it can't be clicked accidentally
-    const btn = document.getElementById('run-btn');
-    if (btn) { btn.disabled = true; btn.title = 'Start Flask first: python app.py'; }
-  }
-})();
-
 // ── File upload ──────────────────────────────────────────────────────────────
 async function loadFile(input) {
   const file = input.files[0];
