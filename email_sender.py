@@ -120,17 +120,105 @@ def _build_html(name, content, num_matches):
 </html>"""
 
 
-# ── Main send function ────────────────────────────────────────────────────────
+# ── Resend sender (HTTPS — works on Render and all cloud hosts) ───────────────
+
+def _send_via_resend(receiver, name, subject, text_body, html_body,
+                     attachments, api_key):
+    """
+    Send via the Resend API (HTTPS on port 443).
+
+    Render free tier blocks all outbound SMTP ports (25 / 465 / 587).
+    Resend communicates over HTTPS so it is never blocked.
+
+    Free plan: 3 000 emails / month — plenty for a daily job pipeline.
+    Sign-up: https://resend.com  (< 1 minute, no credit card)
+    """
+    import resend  # pip install resend
+
+    resend.api_key = api_key
+
+    # Build attachment list — Resend expects bytes
+    att_list = []
+    for fp in attachments:
+        try:
+            with open(fp, "rb") as f:
+                data = f.read()
+            att_list.append({
+                "filename": os.path.basename(fp),
+                "content":  list(data),   # SDK accepts list[int] bytes
+            })
+        except Exception as e:
+            print(f"  Attachment skipped ({os.path.basename(fp)}): {e}")
+
+    params: resend.Emails.SendParams = {
+        "from":        "JobMatchAI <onboarding@resend.dev>",
+        "to":          [receiver],
+        "reply_to":    receiver,
+        "subject":     subject,
+        "text":        text_body,
+        "html":        html_body,
+        "attachments": att_list,
+    }
+
+    resend.Emails.send(params)
+    print(f"  Email sent via Resend → {receiver}")
+
+
+# ── SMTP sender (for local development) ──────────────────────────────────────
+
+def _send_via_smtp(sender, password, receiver, name, subject,
+                   text_body, html_body, attachments):
+    """
+    Send via Gmail SMTP SSL (port 465).
+
+    Works perfectly for local development.
+    NOT suitable for Render/cloud hosts that block outbound SMTP.
+    Set RESEND_API_KEY in Render env vars to use Resend instead.
+    """
+    msg = EmailMessage()
+    msg["From"]       = f"{name} <{sender}>" if name else sender
+    msg["To"]         = receiver
+    msg["Subject"]    = subject
+    msg["Date"]       = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(
+        domain=sender.split("@")[-1] if "@" in (sender or "") else "jobmatchai.local"
+    )
+
+    msg.set_content(text_body)
+    try:
+        msg.add_alternative(html_body, subtype="html")
+    except Exception as e:
+        print(f"  HTML body skipped: {e}")
+
+    for file_path in attachments:
+        try:
+            with open(file_path, "rb") as f:
+                data = f.read()
+            msg.add_attachment(
+                data, maintype="application", subtype="pdf",
+                filename=os.path.basename(file_path),
+            )
+        except Exception as e:
+            print(f"  Attachment skipped ({os.path.basename(file_path)}): {e}")
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(sender, password)
+        server.send_message(msg)
+    print(f"  Email sent via SMTP → {receiver}")
+
+
+# ── Main entry point ──────────────────────────────────────────────────────────
 
 def send_email(content, attachments):
-    sender   = os.getenv("EMAIL",          "")
-    password = os.getenv("EMAIL_PASSWORD", "")
+    sender      = os.getenv("EMAIL",           "")
+    password    = os.getenv("EMAIL_PASSWORD",  "")
+    resend_key  = os.getenv("RESEND_API_KEY",  "")
 
     # Pull receiver and sender's name from the config written by the web UI
     try:
         with open("config.json", "r", encoding="utf-8") as f:
             _cfg = json.load(f)
-        receiver = _cfg.get("receiver_email", "").strip() or sender
+        receiver = _cfg.get("receiver_email", "").strip() or _cfg.get("email", "").strip() or sender
         name     = _cfg.get("name", "").strip()
     except Exception:
         receiver = sender
@@ -138,51 +226,18 @@ def send_email(content, attachments):
 
     today       = date.today().strftime("%B %d, %Y")
     num_matches = max(1, len(attachments) // 2)   # 2 PDFs per job
-
-    # ── Headers ───────────────────────────────────────────────────────────────
-    msg = EmailMessage()
-
-    # ✅  Use the sender's real name — NOT a fake ".com" display name.
-    #    A display name that contains a domain different from the sending
-    #    address is one of Gmail's top spam triggers.
-    msg["From"]       = f"{name} <{sender}>" if name else sender
-    msg["To"]         = receiver
-    msg["Subject"]    = (
+    subject     = (
         f"Job Match Results — {num_matches} match{'es' if num_matches != 1 else ''}"
         f" · {today}"
     )
-    msg["Date"]       = formatdate(localtime=True)   # required by RFC 5322
-    msg["Message-ID"] = make_msgid(                  # unique per-message ID
-        domain=sender.split("@")[-1] if "@" in (sender or "") else "jobmatchai.local"
-    )
+    html_body = _build_html(name, content, num_matches)
 
-    # ── Plain-text body (fallback for text-only clients) ──────────────────────
-    msg.set_content(content)
-
-    # ── HTML body (shown by Gmail, Outlook, Apple Mail, etc.) ────────────────
-    # Having a proper HTML alternative strongly reduces spam scores.
-    try:
-        msg.add_alternative(_build_html(name, content, num_matches), subtype="html")
-    except Exception as e:
-        print(f"  HTML body skipped: {e}")   # plain text still goes through
-
-    # ── PDF attachments ───────────────────────────────────────────────────────
-    # Use the correct MIME type (application/pdf, not octet-stream) so Gmail
-    # recognises these as documents, not random binary blobs.
-    for file_path in attachments:
-        try:
-            with open(file_path, "rb") as f:
-                data = f.read()
-            msg.add_attachment(
-                data,
-                maintype="application",
-                subtype="pdf",
-                filename=os.path.basename(file_path),
-            )
-        except Exception as e:
-            print(f"  Attachment skipped ({os.path.basename(file_path)}): {e}")
-
-    # ── Send via Gmail SMTP SSL ───────────────────────────────────────────────
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(sender, password)
-        server.send_message(msg)
+    # ── Choose transport ──────────────────────────────────────────────────────
+    # Render (and most cloud hosts) block outbound SMTP → use Resend.
+    # For local dev, fall back to Gmail SMTP if no Resend key is configured.
+    if resend_key:
+        _send_via_resend(receiver, name, subject, content, html_body,
+                         attachments, resend_key)
+    else:
+        _send_via_smtp(sender, password, receiver, name, subject,
+                       content, html_body, attachments)
