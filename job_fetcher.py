@@ -127,7 +127,7 @@ def _recent(date_str, description=None):
         dt = dt.replace(tzinfo=None)
     except Exception:
         pass
-    return datetime.utcnow() - dt <= timedelta(days=1)
+    return datetime.utcnow() - dt <= timedelta(days=7)
 
 
 def _recent_monthly(date_str):
@@ -408,7 +408,7 @@ def fetch_usajobs_jobs():
                 params={
                     "Keyword": role,
                     "ResultsPerPage": 25,
-                    "DatePosted": 1,
+                    "DatePosted": 7,
                 },
                 headers={
                     "Authorization-Key": USAJOBS_API_KEY,
@@ -532,7 +532,7 @@ def fetch_indeed_rss_jobs():
             url  = (
                 "https://www.indeed.com/rss"
                 f"?q={requests.utils.quote(role)}"
-                "&sort=date&fromage=1"
+                "&sort=date&fromage=7"
             )
             resp = _session.get(url, headers=headers, timeout=12)
             if resp.status_code != 200:
