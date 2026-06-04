@@ -3,7 +3,7 @@ import re
 import sys
 import json
 import socket as _socket
-from datetime import datetime
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ── Force IPv4 globally ───────────────────────────────────────────────────────
@@ -58,6 +58,32 @@ def safe_format_date(ds):
 os.makedirs("output/resumes",       exist_ok=True)
 os.makedirs("output/cover_letters", exist_ok=True)
 
+# ── Seen-jobs cache ───────────────────────────────────────────────────────────
+# Stores every job URL we have ever fetched so daily runs skip duplicates.
+# Entries older than 60 days are pruned automatically to keep the file small.
+_BASE_DIR        = os.path.dirname(os.path.abspath(__file__))
+_SEEN_JOBS_FILE  = os.path.join(_BASE_DIR, "seen_jobs.json")
+
+def _load_seen():
+    try:
+        with open(_SEEN_JOBS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        cutoff = (datetime.utcnow() - timedelta(days=60)).isoformat()
+        return {url: ts for url, ts in data.items() if ts >= cutoff}
+    except Exception:
+        return {}
+
+def _save_seen(seen: dict, new_urls: list):
+    now = datetime.utcnow().isoformat()
+    for url in new_urls:
+        if url:
+            seen[url] = now
+    try:
+        with open(_SEEN_JOBS_FILE, "w", encoding="utf-8") as f:
+            json.dump(seen, f)
+    except Exception:
+        pass
+
 # ── Step 1: Fetch jobs (parallel — all sources at once) ───────────────────────
 print("Fetching jobs from all sources in parallel...")
 jobs = fetch_today_jobs()
@@ -65,6 +91,24 @@ jobs = fetch_today_jobs()
 if not jobs:
     print("No jobs fetched.")
     sys.exit()
+
+# ── Deduplicate against seen-jobs cache ───────────────────────────────────────
+# Load seen URLs, filter new jobs, then immediately mark ALL fetched URLs
+# (including unqualified ones) as seen so tomorrow's run skips them too.
+seen_urls       = _load_seen()
+all_fetched_urls = [j.get("redirect_url") for j in jobs]
+new_jobs        = [j for j in jobs if j.get("redirect_url") not in seen_urls]
+_save_seen(seen_urls, all_fetched_urls)   # persist before any scoring
+
+skipped = len(jobs) - len(new_jobs)
+if skipped:
+    print(f"  Skipping {skipped} already-seen jobs → {len(new_jobs)} new jobs to process")
+
+if not new_jobs:
+    print("No new jobs since last run — nothing to do.")
+    sys.exit()
+
+jobs = new_jobs   # work only with genuinely new jobs from here on
 
 with open("resume.txt", "r", encoding="utf-8") as f:
     resume_text = f.read()

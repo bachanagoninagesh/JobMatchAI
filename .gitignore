@@ -5,6 +5,7 @@
 resume.txt
 config.json
 last_extract.txt
+seen_jobs.json
 
 # Generated PDFs
 output/
