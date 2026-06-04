@@ -18,7 +18,13 @@ def _ipv4_only(host, port, family=0, type=0, proto=0, flags=0):
     return _orig_gai(host, port, _socket.AF_INET, type, proto, flags)
 _socket.getaddrinfo = _ipv4_only
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(_SCRIPT_DIR)
+
+# ── Per-user directory ────────────────────────────────────────────────────────
+# app.py passes USER_DIR as an environment variable when spawning this process.
+# Every file read/write uses this path so multiple users never share data.
+USER_DIR = os.environ.get("USER_DIR", _SCRIPT_DIR)
 
 from job_fetcher import fetch_today_jobs
 from matcher import calculate_match_score, generate_cover_letter, tailor_resume, _exceeds_experience, parse_resume_once
@@ -26,7 +32,7 @@ from pdf_generator import generate_resume_pdf, generate_cover_letter_pdf
 from email_sender import send_email
 
 # ── Config ────────────────────────────────────────────────────────────────────
-with open("config.json", "r", encoding="utf-8") as f:
+with open(os.path.join(USER_DIR, "config.json"), "r", encoding="utf-8") as f:
     config = json.load(f)
 
 MATCH_THRESHOLD = config.get("match_threshold", 70)
@@ -54,15 +60,14 @@ def safe_format_date(ds):
     return "Unknown"
 
 
-# ── Directories ───────────────────────────────────────────────────────────────
-os.makedirs("output/resumes",       exist_ok=True)
-os.makedirs("output/cover_letters", exist_ok=True)
+# ── Directories (under USER_DIR) ──────────────────────────────────────────────
+os.makedirs(os.path.join(USER_DIR, "output", "resumes"),       exist_ok=True)
+os.makedirs(os.path.join(USER_DIR, "output", "cover_letters"), exist_ok=True)
 
 # ── Seen-jobs cache ───────────────────────────────────────────────────────────
-# Stores every job URL we have ever fetched so daily runs skip duplicates.
-# Entries older than 60 days are pruned automatically to keep the file small.
-_BASE_DIR        = os.path.dirname(os.path.abspath(__file__))
-_SEEN_JOBS_FILE  = os.path.join(_BASE_DIR, "seen_jobs.json")
+# Per-user: each user's seen_jobs.json lives in their own USER_DIR.
+# Entries older than 60 days are pruned automatically.
+_SEEN_JOBS_FILE  = os.path.join(USER_DIR, "seen_jobs.json")
 
 def _load_seen():
     try:
@@ -110,7 +115,7 @@ if not new_jobs:
 
 jobs = new_jobs   # work only with genuinely new jobs from here on
 
-with open("resume.txt", "r", encoding="utf-8") as f:
+with open(os.path.join(USER_DIR, "resume.txt"), "r", encoding="utf-8") as f:
     resume_text = f.read()
 
 # ── Pre-parse resume ONCE — reused by every tailor_resume() call ──────────────
@@ -209,10 +214,12 @@ def _process_one(args):
             resume_json  = _f_resume.result()
             cover_letter = _f_cover.result()
 
-        resume_path = f"output/resumes/{company_safe}_Resume.pdf"
+        resume_path = os.path.join(USER_DIR, "output", "resumes",
+                                     f"{company_safe}_Resume.pdf")
         generate_resume_pdf(resume_path, resume_json, _name, _contact)
 
-        cover_pdf = f"output/cover_letters/{company_safe}_Cover_Letter.pdf"
+        cover_pdf = os.path.join(USER_DIR, "output", "cover_letters",
+                                  f"{company_safe}_Cover_Letter.pdf")
         generate_cover_letter_pdf(cover_pdf, cover_letter)
 
         print(f"  [{company_safe}] Done  (score {score})")

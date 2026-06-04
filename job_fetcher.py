@@ -24,8 +24,9 @@ _adapter = HTTPAdapter(
 _session.mount("http://",  _adapter)
 _session.mount("https://", _adapter)
 
-# Loaded fresh each run from the config written by the web UI
-with open("config.json", "r", encoding="utf-8") as f:
+# Each user's config lives in their own USER_DIR set by the parent process.
+_USER_DIR = os.environ.get("USER_DIR", os.path.dirname(os.path.abspath(__file__)))
+with open(os.path.join(_USER_DIR, "config.json"), "r", encoding="utf-8") as f:
     _cfg = json.load(f)
 
 ADZUNA_APP_ID    = os.getenv("ADZUNA_APP_ID")

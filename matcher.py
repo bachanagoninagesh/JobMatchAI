@@ -10,8 +10,9 @@ load_dotenv()
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Loaded fresh each run from the config written by the web UI
-with open("config.json", "r", encoding="utf-8") as f:
+# Each user's config lives in their own USER_DIR set by the parent process.
+_USER_DIR = os.environ.get("USER_DIR", os.path.dirname(os.path.abspath(__file__)))
+with open(os.path.join(_USER_DIR, "config.json"), "r", encoding="utf-8") as f:
     _cfg = json.load(f)
 
 _name      = _cfg.get("name", "")

@@ -2,6 +2,7 @@ import os
 import re
 import json
 import time
+import uuid
 import secrets
 import subprocess
 import sys
@@ -20,28 +21,57 @@ def _ipv4_only(host, port, family=0, type=0, proto=0, flags=0):
 _socket.getaddrinfo = _ipv4_only
 
 app = Flask(__name__)
-# Secret key for session cookies — auto-generated at startup so it's
-# unique per deployment without needing a separate env var.
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
-pipeline_status = {"running": False, "output": [], "done": False, "error": None}
-_lock = threading.Lock()
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE          = os.path.dirname(os.path.abspath(__file__))
+_USERDATA_DIR = os.path.join(BASE, "user_data")
+_EXTRACTS_DIR = os.path.join(_USERDATA_DIR, "_extracts")
+os.makedirs(_EXTRACTS_DIR, exist_ok=True)
 
-# Path where the last successfully extracted resume text is cached.
-_LAST_EXTRACT = os.path.join(BASE, "last_extract.txt")
-
-# Site password — set SITE_PASSWORD in .env / Render env vars.
-# If not set, the site is open (useful for local development).
+# Site password gate
 _SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "")
+
+# ── Per-run state ─────────────────────────────────────────────────────────────
+# Multiple users can run pipelines simultaneously.
+# Each run gets a UUID; the client polls /api/status?run_id=<uuid>.
+_active_runs  = {}            # run_id → {running, output, done, error}
+_user_locks   = {}            # email  → Lock  (one pipeline per email at a time)
+_state_lock   = threading.Lock()
 
 
 def _is_authenticated():
-    """Return True if the visitor has entered the correct site password."""
     if not _SITE_PASSWORD:
-        return True   # no password configured → open access (local dev)
+        return True
     return session.get("auth") == _SITE_PASSWORD
 
+
+def _user_dir(email: str) -> str:
+    """Return (and create) the per-user data directory for *email*."""
+    safe = re.sub(r"[^a-zA-Z0-9._-]", "_", email.lower().strip())
+    path = os.path.join(_USERDATA_DIR, safe)
+    os.makedirs(os.path.join(path, "output", "resumes"),       exist_ok=True)
+    os.makedirs(os.path.join(path, "output", "cover_letters"), exist_ok=True)
+    return path
+
+
+def _get_user_lock(email: str) -> threading.Lock:
+    with _state_lock:
+        if email not in _user_locks:
+            _user_locks[email] = threading.Lock()
+        return _user_locks[email]
+
+
+def _extract_path() -> str:
+    """Per-session path for the last successfully extracted resume text."""
+    key = session.get("extract_key")
+    if not key:
+        key = secrets.token_hex(16)
+        session["extract_key"] = key
+    path = os.path.join(_EXTRACTS_DIR, f"{key}.txt")
+    return path
+
+
+# ── Login ─────────────────────────────────────────────────────────────────────
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -51,7 +81,6 @@ def login():
             session["auth"] = _SITE_PASSWORD
             return redirect(url_for("index"))
         error = "Wrong password — try again."
-    # Inline login page — no extra template file needed
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -92,6 +121,8 @@ def login():
 </html>"""
 
 
+# ── Main page ─────────────────────────────────────────────────────────────────
+
 @app.route("/")
 def index():
     if not _is_authenticated():
@@ -103,44 +134,41 @@ def index():
     return resp
 
 
+# ── Run pipeline ──────────────────────────────────────────────────────────────
+
 @app.route("/api/run", methods=["POST"])
 def run_pipeline():
     if not _is_authenticated():
         return jsonify({"error": "Not authenticated. Please log in first."}), 401
 
-    global pipeline_status
+    data = request.get_json(force=True, silent=True) or {}
 
-    with _lock:
-        if pipeline_status["running"]:
-            return jsonify({"error": "A pipeline is already running. Please wait."}), 409
+    # Validate required fields
+    if not data.get("name") or not data.get("email"):
+        return jsonify({"error": "Name and email are required."}), 400
+    if not data.get("target_roles"):
+        return jsonify({"error": "At least one target role is required."}), 400
 
-        data = request.get_json(force=True, silent=True) or {}
+    email      = data["email"].strip()
+    user_lock  = _get_user_lock(email)
 
-        # Validate required fields
-        if not data.get("name") or not data.get("email"):
-            return jsonify({"error": "Name and email are required."}), 400
-        if not data.get("target_roles"):
-            return jsonify({"error": "At least one target role is required."}), 400
+    if not user_lock.acquire(blocking=False):
+        return jsonify({"error": "A pipeline is already running for this account. Please wait."}), 409
 
+    try:
         resume_txt = data.get("resume_text", "").strip()
         if not resume_txt:
+            user_lock.release()
             return jsonify({"error": "Resume text is required."}), 400
 
         # ── Short-text auto-recovery ─────────────────────────────────────────
-        # PDF.js (browser) silently truncates malformed PDFs to ~1 000 chars.
-        # When that happens the browser sends us a stub instead of the full
-        # resume, which produces a PDF with only the summary section.
-        #
-        # Fix: /api/parse-resume caches every successful server-side extraction
-        # to last_extract.txt.  If the text we just received looks truncated
-        # (< 1 500 chars) AND a recent cache file exists, swap in the full text
-        # automatically — the user never sees an error.
         if len(resume_txt) < 1500:
             recovered = False
             try:
-                cache_age = time.time() - os.path.getmtime(_LAST_EXTRACT)
-                if cache_age < 1800:          # cache valid for 30 minutes
-                    with open(_LAST_EXTRACT, "r", encoding="utf-8") as f:
+                cache_path = _extract_path()
+                cache_age  = time.time() - os.path.getmtime(cache_path)
+                if cache_age < 1800:
+                    with open(cache_path, "r", encoding="utf-8") as f:
                         cached = f.read().strip()
                     if len(cached) > len(resume_txt):
                         resume_txt = cached
@@ -149,6 +177,7 @@ def run_pipeline():
                 pass
 
             if not recovered:
+                user_lock.release()
                 return jsonify({
                     "error": (
                         f"Resume text appears incomplete "
@@ -159,8 +188,8 @@ def run_pipeline():
 
         config = {
             "name":                 data.get("name", "").strip(),
-            "email":                data.get("email", "").strip(),
-            "receiver_email":       data.get("receiver_email", "").strip() or data.get("email", "").strip(),
+            "email":                email,
+            "receiver_email":       data.get("receiver_email", "").strip() or email,
             "phone":                data.get("phone", "").strip(),
             "location":             data.get("location", "").strip().title(),
             "linkedin":             data.get("linkedin", "").strip(),
@@ -180,17 +209,26 @@ def run_pipeline():
             "lever_companies":      data.get("lever_companies", []),
         }
 
-        with open(os.path.join(BASE, "config.json"), "w", encoding="utf-8") as f:
+        udir = _user_dir(email)
+        with open(os.path.join(udir, "config.json"), "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
-
-        with open(os.path.join(BASE, "resume.txt"), "w", encoding="utf-8") as f:
+        with open(os.path.join(udir, "resume.txt"), "w", encoding="utf-8") as f:
             f.write(resume_txt)
 
-        pipeline_status = {"running": True, "output": [], "done": False, "error": None}
+        run_id = uuid.uuid4().hex
+        with _state_lock:
+            _active_runs[run_id] = {
+                "running": True, "output": [], "done": False, "error": None
+            }
+
+    except Exception as exc:
+        user_lock.release()
+        return jsonify({"error": str(exc)}), 500
 
     def _run():
-        global pipeline_status
         try:
+            env          = os.environ.copy()
+            env["USER_DIR"] = udir
             proc = subprocess.Popen(
                 [sys.executable, "-W", "ignore", "main.py"],
                 stdout=subprocess.PIPE,
@@ -198,6 +236,7 @@ def run_pipeline():
                 text=True,
                 bufsize=1,
                 cwd=BASE,
+                env=env,
             )
             for line in proc.stdout:
                 line = line.rstrip()
@@ -207,32 +246,40 @@ def run_pipeline():
                     continue
                 if line.strip().startswith("C:\\") or line.strip().startswith("/usr/"):
                     continue
-                pipeline_status["output"].append(line)
+                _active_runs[run_id]["output"].append(line)
             proc.wait()
             if proc.returncode != 0:
-                pipeline_status["error"] = f"Process exited with code {proc.returncode}"
+                _active_runs[run_id]["error"] = f"Process exited with code {proc.returncode}"
         except Exception as exc:
-            pipeline_status["error"] = str(exc)
+            _active_runs[run_id]["error"] = str(exc)
         finally:
-            pipeline_status["running"] = False
-            pipeline_status["done"] = True
+            _active_runs[run_id]["running"] = False
+            _active_runs[run_id]["done"]    = True
+            _active_runs[run_id]["_ts"]     = time.time()
+            user_lock.release()
+            _prune_old_runs()
 
     threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"message": "Pipeline started"})
+    return jsonify({"message": "Pipeline started", "run_id": run_id})
 
+
+def _prune_old_runs():
+    """Remove completed runs from memory after 30 minutes."""
+    cutoff = time.time() - 1800
+    with _state_lock:
+        stale = [rid for rid, s in _active_runs.items()
+                 if s.get("done") and s.get("_ts", 0) < cutoff]
+        for rid in stale:
+            del _active_runs[rid]
+
+
+# ── Parse resume ──────────────────────────────────────────────────────────────
 
 @app.route("/api/parse-resume", methods=["POST"])
 def parse_resume():
     if not _is_authenticated():
         return jsonify({"error": "Not authenticated."}), 401
-    """
-    Extract plain text from an uploaded resume file.
-    Supported: .txt  .pdf  .docx  .doc
 
-    After every successful extraction the text is cached to last_extract.txt
-    so that /api/run can recover automatically when the browser sends
-    truncated text (e.g. PDF.js failing on a malformed PDF).
-    """
     file = request.files.get("file")
     if not file:
         return jsonify({"error": "No file provided"}), 400
@@ -240,9 +287,8 @@ def parse_resume():
     fname = file.filename.lower()
 
     def _save_cache(text):
-        """Persist extracted text so /api/run can use it for auto-recovery."""
         try:
-            with open(_LAST_EXTRACT, "w", encoding="utf-8") as f:
+            with open(_extract_path(), "w", encoding="utf-8") as f:
                 f.write(text)
         except Exception:
             pass
@@ -261,17 +307,11 @@ def parse_resume():
         file_bytes = file.read()
 
         def _clean_pdf_text(raw):
-            """Normalise text from PDF: collapse tabs/multiple spaces."""
             raw = raw.replace("\t", " ")
             raw = re.sub(r"[ ]{2,}", " ", raw)
             lines = [l.rstrip() for l in raw.splitlines()]
             return "\n".join(lines).strip()
 
-        # Method 1: pypdf with strict=False
-        # strict=False is essential: many resume PDFs have xref errors
-        # ("wrong pointing object") that cause PDF.js to stop early and
-        # return only ~1 000 chars.  pypdf tolerates those errors and
-        # recovers the full text from every page.
         try:
             import pypdf, io
             reader = pypdf.PdfReader(io.BytesIO(file_bytes), strict=False)
@@ -283,7 +323,6 @@ def parse_resume():
         except Exception:
             pass
 
-        # Method 2: pdfplumber (different engine — fallback for edge cases)
         try:
             import pdfplumber, io
             with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
@@ -300,7 +339,7 @@ def parse_resume():
                      "Please paste the text manually."
         }), 400
 
-    # ── DOCX (Word 2007+) ─────────────────────────────────────────────────
+    # ── DOCX ──────────────────────────────────────────────────────────────
     if fname.endswith(".docx"):
         try:
             from docx import Document
@@ -317,20 +356,13 @@ def parse_resume():
                     lines.append(t)
                     seen.add(t)
 
-            # Pass 1: top-level paragraphs
             for p in doc.paragraphs:
                 _add(p.text)
-
-            # Pass 2: table cells (many resume templates put content here)
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
                         for para in cell.paragraphs:
                             _add(para.text)
-
-            # Pass 3: floating text boxes (w:txbxContent)
-            # Modern Word resume templates often put Experience/Skills/Education
-            # inside floating text boxes which python-docx skips by default.
             try:
                 for txbx in doc.element.body.iter(qn("w:txbxContent")):
                     for para in txbx.iter(qn("w:p")):
@@ -338,8 +370,6 @@ def parse_resume():
                         _add(t)
             except Exception:
                 pass
-
-            # Pass 4: headers / footers
             try:
                 for section in doc.sections:
                     for hdr in (section.header, section.footer):
@@ -355,17 +385,14 @@ def parse_resume():
             _save_cache(text)
             return jsonify({"text": text})
         except ImportError:
-            return jsonify({
-                "error": "python-docx is not installed. Run: pip install python-docx"
-            }), 500
+            return jsonify({"error": "python-docx is not installed."}), 500
         except Exception as e:
             return jsonify({"error": f"DOCX parsing error: {e}"}), 400
 
-    # ── DOC (old binary Word format) ──────────────────────────────────────
+    # ── DOC ───────────────────────────────────────────────────────────────
     if fname.endswith(".doc"):
         file_bytes = file.read()
 
-        # Method 1: Word COM automation (Windows + MS Word installed)
         try:
             import win32com.client
             import tempfile, pythoncom
@@ -395,7 +422,6 @@ def parse_resume():
         except Exception:
             pass
 
-        # Method 2: python-docx (OOXML .doc files)
         try:
             from docx import Document
             import io
@@ -417,7 +443,6 @@ def parse_resume():
         except Exception:
             pass
 
-        # Method 3: raw UTF-16-LE binary salvage
         try:
             raw_text = file_bytes.decode("utf-16-le", errors="ignore")
             salvaged = re.sub(r"[^\x20-\x7E\xA0-\xFF\n\t]+", " ", raw_text)
@@ -430,24 +455,28 @@ def parse_resume():
 
         return jsonify({
             "error": (
-                "Could not extract text from this .doc file automatically.\n"
-                "Options:\n"
-                "1. Open in Microsoft Word → Save As .docx → re-upload.\n"
-                "2. Open in Google Docs → Download as .docx → re-upload.\n"
-                "3. Copy and paste the text directly into the resume box."
+                "Could not extract text from this .doc file.\n"
+                "Save as .docx in Word or Google Docs and re-upload."
             )
         }), 400
 
     return jsonify({
-        "error": "Unsupported format. Please upload a .txt, .pdf, .docx, or .doc file."
+        "error": "Unsupported format. Please upload .txt, .pdf, .docx, or .doc."
     }), 400
 
+
+# ── Status polling ────────────────────────────────────────────────────────────
 
 @app.route("/api/status")
 def get_status():
     if not _is_authenticated():
         return jsonify({"error": "Not authenticated."}), 401
-    return jsonify(pipeline_status)
+    run_id = request.args.get("run_id", "")
+    with _state_lock:
+        status = _active_runs.get(run_id)
+    if status is None:
+        return jsonify({"error": "Run not found", "done": True}), 404
+    return jsonify(status)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,9 @@ config.json
 last_extract.txt
 seen_jobs.json
 
+# Per-user data directories (all user resumes, configs, PDFs, seen-jobs caches)
+user_data/
+
 # Generated PDFs
 output/
 

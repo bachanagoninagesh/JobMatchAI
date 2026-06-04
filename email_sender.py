@@ -9,6 +9,9 @@ from dotenv       import load_dotenv
 
 load_dotenv()
 
+# Each user's config lives in their own USER_DIR set by the parent process.
+_USER_DIR = os.environ.get("USER_DIR", os.path.dirname(os.path.abspath(__file__)))
+
 
 # ── HTML email builder ────────────────────────────────────────────────────────
 
@@ -214,9 +217,9 @@ def send_email(content, attachments):
     password    = os.getenv("EMAIL_PASSWORD",  "")
     resend_key  = os.getenv("RESEND_API_KEY",  "")
 
-    # Pull receiver and sender's name from the config written by the web UI
+    # Pull receiver and sender's name from the user's config file.
     try:
-        with open("config.json", "r", encoding="utf-8") as f:
+        with open(os.path.join(_USER_DIR, "config.json"), "r", encoding="utf-8") as f:
             _cfg = json.load(f)
         receiver = _cfg.get("receiver_email", "").strip() or _cfg.get("email", "").strip() or sender
         name     = _cfg.get("name", "").strip()

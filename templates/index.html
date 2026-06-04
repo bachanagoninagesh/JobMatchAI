@@ -1316,6 +1316,7 @@ async function runPipeline() {
   logOut.innerHTML = '';
   setStatus('running');
 
+  let runId = null;
   try {
     const res = await fetch('/api/run', {
       method: 'POST',
@@ -1324,15 +1325,16 @@ async function runPipeline() {
     });
     const json = await res.json();
     if (!res.ok) { setStatus('error', json.error || 'Failed to start'); resetBtn(); return; }
+    runId = json.run_id;
   } catch (e) { setStatus('error', e.message); resetBtn(); return; }
 
   startTimer();   // ← begin elapsed clock + progress bar
 
-  // Poll every second
+  // Poll every second — pass run_id so the server returns this user's status
   let seen = 0;
   pollId = setInterval(async () => {
     try {
-      const res    = await fetch('/api/status');
+      const res    = await fetch('/api/status?run_id=' + runId);
       const status = await res.json();
 
       status.output.slice(seen).forEach(line => appendLog(line));
