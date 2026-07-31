@@ -4,6 +4,14 @@
 
 ---
 
+## 🎥 Demo Video
+
+[![Watch Demo](https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+
+> *Replace the YouTube link above with your actual demo recording.*
+
+---
+
 ## 📋 Project Overview
 
 This project focuses on building an end-to-end AI Job Search Automation Platform using Python, Flask, and the OpenAI GPT API to eliminate the manual effort of daily job searching. The system helps job seekers discover relevant opportunities, receive ATS-optimized resumes, and get personalized cover letters — automatically delivered to their inbox every day.
