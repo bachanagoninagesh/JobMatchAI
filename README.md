@@ -6,7 +6,7 @@
 
 ## 🎥 Demo Video
 
-[![Watch Demo](https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+[![Watch Demo](https://img.jpg)](https://www.video)
 
 > *Replace the YouTube link above with your actual demo recording.*
 

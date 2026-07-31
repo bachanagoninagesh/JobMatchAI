@@ -27,7 +27,15 @@
       "Bash(powershell.exe -Command \"Get-Content 'C:\\\\Users\\\\nages\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--duplicate-of-matchAI-for-everyone\\\\2efab208-b835-471e-ac57-4b15ff094df9\\\\tasks\\\\bxieoez8d.output'\")",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget",
+      "Bash(python -c \"import cairosvg; cairosvg.svg2png\\(url='pipeline.svg', write_to='pipeline.png', output_width=1200, output_height=520\\)\")",
+      "Bash(where chrome *)",
+      "Bash(where \"Google Chrome\")",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Read(//c/Program Files \\\\\\(x86\\\\\\)/Google/Chrome/Application/**)",
+      "Bash(\"C:/Program Files/Google/Chrome/Application/chrome.exe\" --headless --screenshot=\"D:/duplicate of matchAI for everyone/pipeline.png\" --window-size=1200,520 --default-background-color=0d1117ff \"file:///D:/duplicate%20of%20matchAI%20for%20everyone/pipeline.svg\")"
     ]
   }
 }
