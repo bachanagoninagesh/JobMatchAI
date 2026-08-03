@@ -4,6 +4,10 @@
 
 ---
 
+## 🎥 Demo Video
+
+> 📽️ **[▶ Watch Demo Video](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)** — replace this link with your actual recording
+
 ---
 
 ## 📋 Project Overview
@@ -63,7 +67,7 @@ Resend API delivers all PDFs to user's inbox
   <img width="1920" height="1080" alt="Watch Demo Video" src="https://drive.google.com/file/d/1K-2xb93Oyy_hVqWbcAxgaiSe7VYJgICm/view?usp=sharing"/>
 </a>
 
-> *Replace the YouTube link above with your actual demo recording.*
+> 
 ---
 ## 🚀 Key Features
 
