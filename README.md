@@ -57,7 +57,7 @@ Resend API delivers all PDFs to user's inbox
 
 ## 🎥 Demo Video
 
-[![Watch Demo](pipeline.png)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+[![Watch Demo](pipeline.png)](https://drive.google.com/file/d/1X9tNMC9U9-_fFXIv_UNrXcIvd8sPrY8s/view?usp=sharing)
 
 > 
 ---
