@@ -229,11 +229,14 @@ def run_pipeline():
         try:
             env          = os.environ.copy()
             env["USER_DIR"] = udir
+            env["PYTHONIOENCODING"] = "utf-8"
+            env["PYTHONUTF8"] = "1"
             proc = subprocess.Popen(
                 [sys.executable, "-W", "ignore", "main.py"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",
                 bufsize=1,
                 cwd=BASE,
                 env=env,
