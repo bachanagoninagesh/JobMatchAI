@@ -4,14 +4,6 @@
 
 ---
 
-## 🎥 Demo Video
-
-<a href="https://drive.google.com/file/d/11GpVjfZysm_ZPhs31gWY9yB1elzZkulZ/view?usp=sharing" target="_blank">
-  <img width="1920" height="1080" alt="Watch Demo Video" src="https://drive.google.com/thumbnail?id=1aVZDX6h8A3V_wFyH8DOUQn3KLadSMx-G&sz=w1920"/>
-</a>
-
-> *Replace the YouTube link above with your actual demo recording.*
-
 ---
 
 ## 📋 Project Overview
@@ -65,6 +57,14 @@ Resend API delivers all PDFs to user's inbox
 
 ---
 
+## 🎥 Demo Video
+
+<a href="https://drive.google.com/file/d/11GpVjfZysm_ZPhs31gWY9yB1elzZkulZ/view?usp=sharing" target="_blank">
+  <img width="1920" height="1080" alt="Watch Demo Video" src="https://drive.google.com/thumbnail?id=1aVZDX6h8A3V_wFyH8DOUQn3KLadSMx-G&sz=w1920"/>
+</a>
+
+> *Replace the YouTube link above with your actual demo recording.*
+---
 ## 🚀 Key Features
 
 - **15 job board integrations** — Adzuna, USAJobs, Jooble, FindWork, Remotive, Indeed RSS, Lever ATS, Greenhouse ATS, The Muse, RemoteOK, Jobicy, Arbeitnow, WeWorkRemotely, WorkingNomads, Hacker News Hiring
