@@ -4,12 +4,6 @@
 
 ---
 
-## 🎥 Demo Video
-
-> 📽️ **[▶ Watch Demo Video](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)** — replace this link with your actual recording
-
----
-
 ## 📋 Project Overview
 
 This project focuses on building an end-to-end AI Job Search Automation Platform using Python, Flask, and the OpenAI GPT API to eliminate the manual effort of daily job searching. The system helps job seekers discover relevant opportunities, receive ATS-optimized resumes, and get personalized cover letters — automatically delivered to their inbox every day.
@@ -20,7 +14,7 @@ The platform supports multiple users simultaneously, each with their own isolate
 
 ## 🏗️ System Architecture
 
-![JobMatchAI Pipeline Architecture](pipeline.png)
+[![JobMatchAI Pipeline Architecture — click to watch demo](pipeline.png)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
 
 The pipeline runs end-to-end as a background process spawned per user:
 
