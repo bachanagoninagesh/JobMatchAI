@@ -35,7 +35,9 @@
       "Bash(where \"Google Chrome\")",
       "Read(//c/Program Files/Google/Chrome/Application/**)",
       "Read(//c/Program Files \\\\\\(x86\\\\\\)/Google/Chrome/Application/**)",
-      "Bash(\"C:/Program Files/Google/Chrome/Application/chrome.exe\" --headless --screenshot=\"D:/duplicate of matchAI for everyone/pipeline.png\" --window-size=1200,520 --default-background-color=0d1117ff \"file:///D:/duplicate%20of%20matchAI%20for%20everyone/pipeline.svg\")"
+      "Bash(\"C:/Program Files/Google/Chrome/Application/chrome.exe\" --headless --screenshot=\"D:/duplicate of matchAI for everyone/pipeline.png\" --window-size=1200,520 --default-background-color=0d1117ff \"file:///D:/duplicate%20of%20matchAI%20for%20everyone/pipeline.svg\")",
+      "Bash(python -c \"from PIL import Image, ImageDraw; print\\('Pillow OK'\\)\")",
+      "Bash(python -)"
     ]
   }
 }

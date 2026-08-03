@@ -14,7 +14,7 @@ The platform supports multiple users simultaneously, each with their own isolate
 
 ## 🏗️ System Architecture
 
-[![JobMatchAI Pipeline Architecture — click to watch demo](pipeline.png)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+[![JobMatchAI Pipeline Architecture — click to watch demo](pipeline.svg)]
 
 The pipeline runs end-to-end as a background process spawned per user:
 
